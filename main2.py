@@ -2,7 +2,19 @@ from tkinter import *
 from PIL import Image, ImageTk
 
 def reset():
-    start_tic_tac_toe(parent, p1, p2)
+    global b1, b2, b3, b4, b5, b6, b7, b8, b9
+    global choice
+    global bt1, bt2, bt3, bt4, bt5, bt6, bt7, bt8, bt9
+    global lb5
+
+
+    choice.set(1)
+    b1 = b2 = b3 = b4 = b5 = b6 = b7 = b8 = b9 = -1
+
+    for bt in [bt1, bt2, bt3, bt4, bt5, bt6, bt7, bt8, bt9]:
+        bt.config(image='', state=NORMAL)
+
+    lb5.config(text="", bg="light blue")
 
 
 def button1():
@@ -186,6 +198,7 @@ def start_tic_tac_toe(parent, p1, p2):
     game = Toplevel(parent)
     game.title("Tic Tac Toe Game")
     game.config(bg="light blue")
+    game.geometry("1400x800")
 
     Label(
         game,
@@ -260,8 +273,8 @@ def start_tic_tac_toe(parent, p1, p2):
     lb5 = Label(game,font=("Arial",12),bg="light blue")
     lb5.place(x=615,y=650,width=350,height=50)
 
-    rb = Button(game,text="retry",font=("Arial",12),bg="light blue",command=reset)
-    rb.place(x=815,y=650,width=80,height=50)
+    rb = Button(game,text="New Game",font=("Arial",12),bg="Orange",command=reset)
+    rb.place(x=1040,y=650,width=120,height=50)
 
 
     game.mainloop()
