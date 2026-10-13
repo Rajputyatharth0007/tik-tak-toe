@@ -16,10 +16,11 @@ import unittest
 # We only need the AI functions (minimax, best_move, etc.), not the GUI.
 tk_stub = types.ModuleType("tkinter")
 for _name in ("Tk", "Toplevel", "Label", "Button", "Entry", "IntVar",
-              "NORMAL", "DISABLED", "END"):
+              "Frame", "END"):
     setattr(tk_stub, _name, object)
-tk_stub.NORMAL = "normal"
+tk_stub.NORMAL   = "normal"
 tk_stub.DISABLED = "disabled"
+tk_stub.FLAT     = "flat"
 sys.modules.setdefault("tkinter", tk_stub)
 
 pil_stub = types.ModuleType("PIL")
@@ -30,6 +31,16 @@ pil_imagetk.PhotoImage = lambda *a, **kw: None
 sys.modules.setdefault("PIL", pil_stub)
 sys.modules.setdefault("PIL.Image", pil_image)
 sys.modules.setdefault("PIL.ImageTk", pil_imagetk)
+
+# Stub theme module so main.py can be imported without actual colors/fonts
+theme_stub = types.ModuleType("theme")
+for _attr in ("BG_MAIN", "BG_PANEL", "BG_SECONDARY", "NEON_CYAN", "NEON_PURPLE",
+              "SUCCESS", "ERROR", "TEXT_MAIN", "TEXT_DIM", "CELL_BG", "CELL_HOVER",
+              "CELL_DISABLED", "BTN_BG", "BTN_ACTIVE", "FONT_TITLE", "FONT_SUBTITLE",
+              "FONT_HEADING", "FONT_BODY", "FONT_BTN", "FONT_CELL", "FONT_STATUS",
+              "FONT_SCORE", "WIN_W", "WIN_H", "CELL_SIZE", "CELL_GAP"):
+    setattr(theme_stub, _attr, "")
+sys.modules.setdefault("theme", theme_stub)
 
 # Now safely import the AI layer from main.py
 import main as game_ai

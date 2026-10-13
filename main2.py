@@ -1,289 +1,330 @@
-from tkinter import *
-from PIL import Image, ImageTk
+"""
+main2.py – Two-player Tic-Tac-Toe with Neon UI.
 
-def reset():
-    global b1, b2, b3, b4, b5, b6, b7, b8, b9
-    global choice
-    global bt1, bt2, bt3, bt4, bt5, bt6, bt7, bt8, bt9
-    global lb5
+Player 1 plays O  (NEON_CYAN).
+Player 2 plays X  (NEON_PURPLE).
+Turn alternates via choice IntVar (odd = O, even = X).
 
+Board values: -1 empty  /  0 = O (P1)  /  1 = X (P2)
+"""
 
-    choice.set(1)
-    b1 = b2 = b3 = b4 = b5 = b6 = b7 = b8 = b9 = -1
+import tkinter as tk
+import theme as T
+from PIL import Image, ImageTk   # kept for backward-compat; images no longer used in neon build
 
-    for bt in [bt1, bt2, bt3, bt4, bt5, bt6, bt7, bt8, bt9]:
-        bt.config(image='', state=NORMAL)
-
-    lb5.config(text="", bg="light blue")
-
-
-def button1():
-    
-    global b1,choice
-    if choice.get()%2 !=0:
-        bt1.config(image=circleimgtk)
-        bt1.config(state=DISABLED)
-        choice.set(choice.get()+1)
-        print(choice.get())
-        b1 = 0
-        
-
-    else:
-        bt1.config(image=crossimgtk)
-        bt1.config(state=DISABLED)
-        choice.set(choice.get()+1)
-        print(choice.get())
-        b1 = 1
-    check_winner()
-    return choice
-
-def button2():
-    global b2,choice
-    if choice.get()%2 !=0:
-        bt2.config(image=circleimgtk)
-        bt2.config(state=DISABLED)
-        choice.set(choice.get()+1)
-        b2 = 0
-
-    else:
-        bt2.config(image=crossimgtk)
-        bt2.config(state=DISABLED)
-        choice.set(choice.get()+1)
-        b2 = 1
-    check_winner()
-    return choice
-
-def button3():
-    global b3,choice
-    if choice.get()%2 !=0:
-        bt3.config(image=circleimgtk)
-        bt3.config(state=DISABLED)
-        choice.set(choice.get()+1)
-        b3 = 0
-
-    else:
-        bt3.config(image=crossimgtk)
-        bt3.config(state=DISABLED)
-        choice.set(choice.get()+1)
-        b3 = 1
-    check_winner()
-    return choice
-
-def button4():
-    global b4,choice
-    if choice.get()%2 !=0:
-        bt4.config(image=circleimgtk)
-        bt4.config(state=DISABLED)
-        choice.set(choice.get()+1)
-        b4 = 0
-
-    else:
-        bt4.config(image=crossimgtk)
-        bt4.config(state=DISABLED)
-        choice.set(choice.get()+1)
-        b4 = 1
-    check_winner()
-    return choice
-
-def button5(): 
-    global b5,choice
-    if choice.get()%2 !=0:
-        bt5.config(image=circleimgtk)
-        bt5.config(state=DISABLED)
-        choice.set(choice.get()+1)
-        b5 = 0
-
-    else:
-        bt5.config(image=crossimgtk)
-        bt5.config(state=DISABLED)
-        choice.set(choice.get()+1)
-        b5 = 1
-    check_winner()
-    return choice   
-
-def button6():
-    global b6,choice
-    if choice.get()%2 !=0:
-        bt6.config(image=circleimgtk)
-        bt6.config(state=DISABLED)
-        choice.set(choice.get()+1)
-        b6 = 0 
-
-    else:
-        bt6.config(image=crossimgtk)
-        bt6.config(state=DISABLED)
-        choice.set(choice.get()+1)
-        b6 = 1
-    check_winner()
-    return choice
-
-def button7(): 
-    global b7,choice
-    if choice.get()%2 !=0:
-        bt7.config(image=circleimgtk)
-        bt7.config(state=DISABLED)
-        choice.set(choice.get()+1)
-        b7 = 0
-
-    else:
-        bt7.config(image=crossimgtk)
-        bt7.config(state=DISABLED)
-        choice.set(choice.get()+1)
-        b7 = 1
-    check_winner()
-    return choice
-
-def button8():
-    global b8,choice
-    if choice.get()%2 !=0:
-        bt8.config(image=circleimgtk)
-        bt8.config(state=DISABLED)
-        choice.set(choice.get()+1)
-        b8 = 0
-
-    else:
-        bt8.config(image=crossimgtk)
-        bt8.config(state=DISABLED)
-        choice.set(choice.get()+1)
-        b8 = 1
-    check_winner()
-    return choice
-
-def button9():
-    global b9,choice
-    if choice.get()%2 !=0:
-        bt9.config(image=circleimgtk)
-        bt9.config(state=DISABLED)
-        choice.set(choice.get()+1)
-        b9 = 0
+# ── Shared state set by start_tic_tac_toe ─────────────────────────────────────
+b1 = b2 = b3 = b4 = b5 = b6 = b7 = b8 = b9 = -1
+bt1 = bt2 = bt3 = bt4 = bt5 = bt6 = bt7 = bt8 = bt9 = None
+choice    = None
+lb5       = None    # status label
+p1_name   = ""
+p2_name   = ""
+score_p1 = score_p2 = score_d = 0
+score_labels = {}
 
 
-    else:
-        bt9.config(image=crossimgtk)
-        bt9.config(state=DISABLED)
-        choice.set(choice.get()+1)
-        b9 = 1
+# ── Win lines (0-based flat list) ─────────────────────────────────────────────
+_WIN_LINES = [
+    (0, 1, 2), (3, 4, 5), (6, 7, 8),
+    (0, 3, 6), (1, 4, 7), (2, 5, 8),
+    (0, 4, 8), (2, 4, 6),
+]
 
-    check_winner()
-    return choice
+
+def _all_buttons():
+    return [bt1, bt2, bt3, bt4, bt5, bt6, bt7, bt8, bt9]
+
+
+def _board_vals():
+    return [b1, b2, b3, b4, b5, b6, b7, b8, b9]
+
 
 def disable_all():
-    """Disable all board buttons after a terminal state."""
-    for bt in [bt1, bt2, bt3, bt4, bt5, bt6, bt7, bt8, bt9]:
-        bt.config(state=DISABLED)
+    """Lock the board after a terminal state."""
+    for bt in _all_buttons():
+        bt.config(state=tk.DISABLED)
 
 
-def check_winner():
-    if (b1 == b2 == b3 == 0) or (b4 == b5 == b6 == 0) or (b7 == b8 == b9 == 0) or (b1 == b4 == b7 == 0) or (b2 == b5 == b8 == 0) or (b3 == b6 == b9 == 0) or (b1 == b5 == b9 == 0) or (b3 == b5 == b7 == 0):
-        lb5.config(text=f"{p1_name} Wins!",fg = "Red")
-        lb5.config(bg="lightGreen")
-        print("Player1 wins")
-        disable_all()
+def _find_winning_line(player_val):
+    """Return the winning (a,b,c) triple for player_val, or None."""
+    board = _board_vals()
+    for a, b, c in _WIN_LINES:
+        if board[a] == board[b] == board[c] == player_val:
+            return (a, b, c)
+    return None
 
 
-    elif (b1 == b2 == b3 == 1) or (b4 == b5 == b6 == 1) or (b7 == b8 == b9 == 1) or (b1 == b4 == b7 == 1) or (b2 == b5 == b8 == 1) or (b3 == b6 == b9 == 1) or (b1 == b5 == b9 == 1) or (b3 == b5 == b7 == 1):
-        lb5.config(text=f"{p2_name} Wins!")
-        lb5.config(bg="lightGreen",fg = "Red")
-        print("Player 2 wins")
-        disable_all()
+def _highlight_winner(line, color):
+    buttons = _all_buttons()
+    for idx in line:
+        buttons[idx].config(bg=T.SUCCESS, disabledforeground=T.BG_MAIN)
 
 
-    elif all(v != -1 for v in [b1, b2, b3, b4, b5, b6, b7, b8, b9]):
-        print("It's a tie!")
-        lb5.config(text="Game a tie!",bg= "Cyan",fg="Red")
-        disable_all()
+def _set_status(text, color=T.TEXT_MAIN):
+    if lb5:
+        lb5.config(text=text, fg=color)
 
 
-#this for main window
+def _update_scores():
+    if score_labels:
+        score_labels["p1"].config(text=str(score_p1))
+        score_labels["p2"].config(text=str(score_p2))
+        score_labels["d"].config(text=str(score_d))
 
-def start_tic_tac_toe(parent, p1, p2):
-    global choice, b1, b2, b3, b4, b5, b6, b7, b8, b9
-    global bt1, bt2, bt3, bt4, bt5, bt6, bt7, bt8, bt9
-    global circleimgtk, crossimgtk, lb5
-    global p1_name, p2_name
-    p1_name = p1
-    p2_name = p2
 
-    game = Toplevel(parent)
-    game.title("Tic Tac Toe Game")
-    game.config(bg="light blue")
-    game.geometry("1400x800")
+# ── Reset ─────────────────────────────────────────────────────────────────────
 
-    Label(
-        game,
-        text=f"Player 1: {p1} (O)  vs  Player 2: {p2} (X)",
-        font=("Arial",14),
-        bg="cornsilk",
-        fg="grey"
-    ).place(x=540,y=120,width=500,height=50)
+def reset():
+    """Reset board for a new game."""
+    global b1, b2, b3, b4, b5, b6, b7, b8, b9, choice
 
-    
-    choice=IntVar()
     choice.set(1)
     b1 = b2 = b3 = b4 = b5 = b6 = b7 = b8 = b9 = -1
 
+    for bt in _all_buttons():
+        bt.config(text="", state=tk.NORMAL, bg=T.CELL_BG, fg=T.TEXT_MAIN,
+                  disabledforeground=T.TEXT_MAIN)
 
-    #this is for images
-    circleimg = Image.open("circle.png")
-
-    crossimg = Image.open("cross.png")
-
-    circleimgtk = ImageTk.PhotoImage(circleimg)
-
-    crossimgtk = ImageTk.PhotoImage(crossimg)
+    _set_status(f"{p1_name}'s turn  (O)", T.NEON_CYAN)
 
 
+# ── Check winner ──────────────────────────────────────────────────────────────
 
-    #buttons for tic tak tok
-    bt1=Button(game,text="",font=("Arial",30),width=6,height=3,bg="Grey",command=button1)
-    bt1.place(x=590,y=200,width=130,height=110)
+def check_winner():
+    global score_p1, score_p2, score_d
 
-    bt2=Button(game,text="",font=("Arial",30),width=6,height=3,bg="Grey",command=button2)
-    bt2.place(x=720,y=200,width=130,height=110)
+    board = _board_vals()
 
-    bt3=Button(game,text="",font=("Arial",30),width=6,height=3,bg="Grey",command=button3)
-    bt3.place(x=855,y=200,width=130,height=110)
+    # Player 1 (O = 0)
+    wline = _find_winning_line(0)
+    if wline:
+        _highlight_winner(wline, T.NEON_CYAN)
+        disable_all()
+        score_p1 += 1
+        _update_scores()
+        _set_status(f"🎉  {p1_name} Wins!", T.SUCCESS)
+        return
 
-    bt4=Button(game,text="",font=("Arial",30),width=6,height=3,bg="Grey",command=button4)
-    bt4.place(x=590,y=320,width=130,height=110)   
+    # Player 2 (X = 1)
+    wline = _find_winning_line(1)
+    if wline:
+        _highlight_winner(wline, T.NEON_PURPLE)
+        disable_all()
+        score_p2 += 1
+        _update_scores()
+        _set_status(f"🎉  {p2_name} Wins!", T.SUCCESS)
+        return
 
-    bt5=Button(game,text="",font=("Arial",30),width=6,height=3,bg="Grey",command=button5)
-    bt5.place(x=720,y=320,width=130,height=110)
+    # Draw
+    if all(v != -1 for v in board):
+        for bt in _all_buttons():
+            bt.config(bg=T.BG_SECONDARY)
+        disable_all()
+        score_d += 1
+        _update_scores()
+        _set_status("🤝  It's a Draw!", T.TEXT_DIM)
+        return
 
-    bt6=Button(game,text="",font=("Arial",30),width=6,height=3,bg="Grey",  command=button6)
-    bt6.place(x=855,y=320,width=130,height=110)
+    # Game still going – update turn indicator
+    next_is_p1 = (choice.get() % 2 != 0)
+    if next_is_p1:
+        _set_status(f"{p1_name}'s turn  (O)", T.NEON_CYAN)
+    else:
+        _set_status(f"{p2_name}'s turn  (X)", T.NEON_PURPLE)
 
-    bt7=Button(game,text="",font=("Arial",30),width=6,height=3,bg="Grey", command=button7)
-    bt7.place(x=590,y=440,width=130,height=110)
 
-    bt8=Button(game,text="",font=("Arial",30),width=6,height=3,bg="Grey", command=button8)
-    bt8.place(x=720,y=440,width=130,height=110)
+# ── Cell hover ────────────────────────────────────────────────────────────────
 
-    bt9=Button(game,text="",font=("Arial",30),width=6,height=3,bg="Grey", command=button9)
-    bt9.place(x=855,y=440,width=130,height=110)
+def _bind_hover(btn):
+    def on_enter(e):
+        if btn["state"] == tk.NORMAL:
+            btn.config(bg=T.CELL_HOVER)
 
-    #labels for tic tak tok
+    def on_leave(e):
+        if btn["state"] == tk.NORMAL and btn["text"] == "":
+            btn.config(bg=T.CELL_BG)
 
-    lb1=Label(game,text="Tic Tac Tok Game",font=("Bernard MT Condensed",30),bg="Cyan",fg="Red")
-    lb1.place(x=580,y=50,width=400,height=50)
+    btn.bind("<Enter>", on_enter)
+    btn.bind("<Leave>", on_leave)
 
-    lb2= Label(game,font=("Arial",12),bg="black")
-    lb2.place(x=590,y=310,width=395,height=10)
 
-    lb3 = Label(game,font=("Arial",12),bg="black")
-    lb3.place(x=590,y=430,width=395,height=10)
+# ── Generic cell handler ───────────────────────────────────────────────────────
 
-    lb4 = Label(game,font=("Arial",12),bg="black")
-    lb4.place(x=710,y=200,width=10,height=350)
+def _handle_cell(btn, cell_idx_0based):
+    """
+    Generic click handler for any of the 9 cells.
 
-    lb6 = Label(game,font=("Arial",12),bg="black")
-    lb6.place(x=850,y=200,width=10,height=350)
+    cell_idx_0based: 0-8
+    choice odd  → O (P1, value 0, NEON_CYAN)
+    choice even → X (P2, value 1, NEON_PURPLE)
+    """
+    global b1, b2, b3, b4, b5, b6, b7, b8, b9
 
-    lb5 = Label(game,font=("Arial",12),bg="light blue")
-    lb5.place(x=615,y=650,width=350,height=50)
+    is_p1 = (choice.get() % 2 != 0)
+    symbol = "O" if is_p1 else "X"
+    color  = T.NEON_CYAN if is_p1 else T.NEON_PURPLE
+    value  = 0 if is_p1 else 1
 
-    rb = Button(game,text="New Game",font=("Arial",12),bg="Orange",command=reset)
-    rb.place(x=1040,y=650,width=120,height=50)
+    btn.config(text=symbol, fg=color, state=tk.DISABLED, disabledforeground=color)
+    choice.set(choice.get() + 1)
 
+    # Write board value
+    targets = [None, None, None, None, None, None, None, None, None]
+    ref = _board_vals()
+    # update the correct global
+    if cell_idx_0based == 0: b1 = value
+    elif cell_idx_0based == 1: b2 = value
+    elif cell_idx_0based == 2: b3 = value
+    elif cell_idx_0based == 3: b4 = value
+    elif cell_idx_0based == 4: b5 = value
+    elif cell_idx_0based == 5: b6 = value
+    elif cell_idx_0based == 6: b7 = value
+    elif cell_idx_0based == 7: b8 = value
+    elif cell_idx_0based == 8: b9 = value
+
+    check_winner()
+
+
+# ── Window builder ────────────────────────────────────────────────────────────
+
+def start_tic_tac_toe(parent, p1, p2):
+    """
+    Launch the Two-Player game window.
+
+    Parameters
+    ----------
+    parent : Tk
+        The root window (from entry.py), hidden while this window is open.
+    p1, p2 : str
+        Player names.
+    """
+    global choice, lb5, score_labels
+    global bt1, bt2, bt3, bt4, bt5, bt6, bt7, bt8, bt9
+    global p1_name, p2_name
+    global score_p1, score_p2, score_d
+    global b1, b2, b3, b4, b5, b6, b7, b8, b9
+
+    p1_name = p1
+    p2_name = p2
+    score_p1 = score_p2 = score_d = 0
+    b1 = b2 = b3 = b4 = b5 = b6 = b7 = b8 = b9 = -1
+
+    # ── Window ───────────────────────────────────────────────────────────────
+    game = tk.Toplevel(parent)
+    game.title("Tic-Tac-Toe  ✦  Two Player")
+    game.config(bg=T.BG_MAIN)
+    game.geometry(f"{T.WIN_W}x{T.WIN_H}")
+    game.resizable(False, False)
+
+    def _on_close():
+        parent.deiconify()
+        game.destroy()
+
+    game.protocol("WM_DELETE_WINDOW", _on_close)
+
+    choice = tk.IntVar(game)
+    choice.set(1)
+
+    # ── Neon stripes ─────────────────────────────────────────────────────────
+    tk.Frame(game, bg=T.NEON_CYAN).place(x=0, y=0, width=4, height=T.WIN_H)
+    tk.Frame(game, bg=T.NEON_PURPLE).place(x=T.WIN_W - 4, y=0, width=4, height=T.WIN_H)
+
+    # ── Header ───────────────────────────────────────────────────────────────
+    tk.Label(
+        game, text="✦  TIC-TAC-TOE  ✦",
+        font=T.FONT_TITLE, bg=T.BG_MAIN, fg=T.NEON_CYAN,
+    ).place(x=0, y=18, width=T.WIN_W, height=44)
+
+    tk.Label(
+        game,
+        text=f"{p1}  (O)   vs   {p2}  (X)",
+        font=T.FONT_SUBTITLE, bg=T.BG_MAIN, fg=T.TEXT_DIM,
+    ).place(x=0, y=66, width=T.WIN_W, height=22)
+
+    tk.Frame(game, bg=T.NEON_CYAN).place(x=160, y=96, width=T.WIN_W - 320, height=2)
+
+    # ── Score panel ───────────────────────────────────────────────────────────
+    score_frame = tk.Frame(game, bg=T.BG_PANEL, bd=0)
+    score_frame.place(x=20, y=108, width=200, height=120)
+
+    tk.Label(score_frame, text="SCORE", font=("Segoe UI", 9, "bold"),
+             bg=T.BG_PANEL, fg=T.TEXT_DIM).pack(pady=(8, 4))
+
+    score_labels = {}
+    for label_text, key, color in [
+        (f"{p1} (O)", "p1", T.NEON_CYAN),
+        (f"{p2} (X)", "p2", T.NEON_PURPLE),
+        ("Draws",     "d",  T.TEXT_DIM),
+    ]:
+        row = tk.Frame(score_frame, bg=T.BG_PANEL)
+        row.pack(fill=tk.X, padx=10, pady=1)
+        tk.Label(row, text=label_text, font=T.FONT_SCORE,
+                 bg=T.BG_PANEL, fg=color, anchor="w").pack(side=tk.LEFT)
+        val_lbl = tk.Label(row, text="0", font=("Segoe UI", 11, "bold"),
+                           bg=T.BG_PANEL, fg=color, anchor="e")
+        val_lbl.pack(side=tk.RIGHT)
+        score_labels[key] = val_lbl
+
+    # ── Status label ──────────────────────────────────────────────────────────
+    lb5 = tk.Label(
+        game,
+        text=f"{p1}'s turn  (O)",
+        font=T.FONT_STATUS,
+        bg=T.BG_MAIN,
+        fg=T.NEON_CYAN,
+        anchor="center",
+    )
+    lb5.place(x=0, y=108, width=T.WIN_W, height=36)
+
+    # ── Board ─────────────────────────────────────────────────────────────────
+    BOARD_LEFT = (T.WIN_W - (3 * T.CELL_SIZE + 2 * T.CELL_GAP)) // 2
+    BOARD_TOP  = 158
+
+    cell_buttons = []
+    for row in range(3):
+        for col in range(3):
+            idx0 = row * 3 + col
+            x = BOARD_LEFT + col * (T.CELL_SIZE + T.CELL_GAP)
+            y = BOARD_TOP  + row * (T.CELL_SIZE + T.CELL_GAP)
+
+            btn = tk.Button(
+                game,
+                text="",
+                font=T.FONT_CELL,
+                bg=T.CELL_BG,
+                fg=T.TEXT_MAIN,
+                activebackground=T.CELL_HOVER,
+                activeforeground=T.TEXT_MAIN,
+                disabledforeground=T.TEXT_MAIN,
+                relief=tk.FLAT,
+                bd=0,
+                cursor="hand2",
+            )
+            # capture idx0 in closure
+            btn.config(command=lambda b=btn, i=idx0: _handle_cell(b, i))
+            btn.place(x=x, y=y, width=T.CELL_SIZE, height=T.CELL_SIZE)
+            _bind_hover(btn)
+            cell_buttons.append(btn)
+
+    bt1, bt2, bt3, bt4, bt5, bt6, bt7, bt8, bt9 = cell_buttons
+
+    # ── Control buttons ───────────────────────────────────────────────────────
+    BTN_Y = BOARD_TOP + 3 * T.CELL_SIZE + 2 * T.CELL_GAP + 20
+
+    def _make_ctrl_btn(text, color, cmd, x):
+        b = tk.Button(
+            game, text=text, font=T.FONT_BTN,
+            bg=color, fg=T.BG_MAIN,
+            activebackground=T.TEXT_MAIN, activeforeground=T.BG_MAIN,
+            relief=tk.FLAT, bd=0, cursor="hand2",
+            command=cmd,
+        )
+        b.place(x=x, y=BTN_Y, width=160, height=40)
+        b.bind("<Enter>", lambda e: b.config(bg=T.TEXT_MAIN))
+        b.bind("<Leave>", lambda e: b.config(bg=color))
+        return b
+
+    _make_ctrl_btn("↺  New Game", T.NEON_CYAN,   reset,      BOARD_LEFT)
+    _make_ctrl_btn("✕  Exit",     T.ERROR, _on_close, BOARD_LEFT + T.CELL_SIZE * 3 + T.CELL_GAP * 2 - 160)
 
     game.mainloop()
