@@ -1,262 +1,372 @@
+"""
+main.py – Single-player (Player vs Computer) Tic-Tac-Toe module.
+
+Architecture
+------------
+* ``ai`` module (bottom section) – pure game-logic, no Tkinter.
+  Contains the Minimax algorithm and board helpers.
+* ``GUI`` section (top) – Tkinter widgets that call the AI.
+
+Board representation
+--------------------
+Each cell is stored as an integer:
+  -1  → empty
+   0  → human player (circle / O)
+   1  → computer      (cross  / X)
+"""
+
 from tkinter import *
 from PIL import Image, ImageTk
-import random
+
+# ──────────────────────────────────────────────────────────────
+# AI LAYER  (pure logic – no Tkinter)
+# ──────────────────────────────────────────────────────────────
+
+HUMAN = 0       # circle
+COMPUTER = 1    # cross
+EMPTY = -1
+
+# All winning lines as 0-based indices into a flat 9-cell list
+WIN_LINES = [
+    (0, 1, 2), (3, 4, 5), (6, 7, 8),   # rows
+    (0, 3, 6), (1, 4, 7), (2, 5, 8),   # cols
+    (0, 4, 8), (2, 4, 6),               # diagonals
+]
+
+
+def board_from_globals(b1, b2, b3, b4, b5, b6, b7, b8, b9):
+    """Convert the nine module-level cell variables into a list."""
+    return [b1, b2, b3, b4, b5, b6, b7, b8, b9]
+
+
+def check_winner_board(board):
+    """
+    Return the winner (HUMAN or COMPUTER) if any, else None.
+    Uses the flat 9-cell board list.
+    """
+    for a, b, c in WIN_LINES:
+        if board[a] != EMPTY and board[a] == board[b] == board[c]:
+            return board[a]
+    return None
+
+
+def is_draw(board):
+    """True when all cells are filled and there is no winner."""
+    return all(cell != EMPTY for cell in board) and check_winner_board(board) is None
+
+
+def get_empty_cells(board):
+    """Return list of 0-based indices for empty cells."""
+    return [i for i, v in enumerate(board) if v == EMPTY]
+
+
+def minimax(board, depth, is_maximising):
+    """
+    Minimax with depth-aware scoring.
+
+    Returns a score from the computer's perspective:
+      +10 - depth  → computer wins  (prefer faster wins)
+      -10 + depth  → human wins     (prefer to delay losses)
+       0           → draw
+    """
+    winner = check_winner_board(board)
+    if winner == COMPUTER:
+        return 10 - depth
+    if winner == HUMAN:
+        return -10 + depth
+    if is_draw(board):
+        return 0
+
+    empty = get_empty_cells(board)
+
+    if is_maximising:
+        best = -100
+        for idx in empty:
+            board[idx] = COMPUTER
+            score = minimax(board, depth + 1, False)
+            board[idx] = EMPTY
+            best = max(best, score)
+        return best
+    else:
+        best = 100
+        for idx in empty:
+            board[idx] = HUMAN
+            score = minimax(board, depth + 1, True)
+            board[idx] = EMPTY
+            best = min(best, score)
+        return best
+
+
+def best_move(board):
+    """
+    Choose the best 0-based cell index for the computer using Minimax.
+    Returns -1 if the board is full (caller must guard against this).
+    """
+    empty = get_empty_cells(board)
+    if not empty:
+        return -1
+
+    best_score = -100
+    best_idx = empty[0]  # safe fallback
+
+    for idx in empty:
+        board[idx] = COMPUTER
+        score = minimax(board, 0, False)
+        board[idx] = EMPTY
+        if score > best_score:
+            best_score = score
+            best_idx = idx
+
+    return best_idx
+
+
+# ──────────────────────────────────────────────────────────────
+# GUI LAYER
+# ──────────────────────────────────────────────────────────────
 
 def retry():
+    """Reset the board for a new game (New Game button)."""
     global b1, b2, b3, b4, b5, b6, b7, b8, b9
     global bt1, bt2, bt3, bt4, bt5, bt6, bt7, bt8, bt9
-    global lb5
+    global lb5, game_over
 
-    b1 = b2 = b3 = b4 = b5 = b6 = b7 = b8 = b9 = -1
+    b1 = b2 = b3 = b4 = b5 = b6 = b7 = b8 = b9 = EMPTY
+    game_over = False
+
     for bt in [bt1, bt2, bt3, bt4, bt5, bt6, bt7, bt8, bt9]:
         bt.config(image='', state=NORMAL)
+
     lb5.config(text="", bg="light blue")
 
 
 def disable_all():
+    """Disable all board buttons (called after a terminal state)."""
     global bt1, bt2, bt3, bt4, bt5, bt6, bt7, bt8, bt9
-    for bt in [bt1,bt2,bt3,bt4,bt5,bt6,bt7,bt8,bt9]:
+    for bt in [bt1, bt2, bt3, bt4, bt5, bt6, bt7, bt8, bt9]:
         bt.config(state=DISABLED)
 
 
-def player_move(index):
+def _cell_buttons():
+    """Return the nine board buttons as a list (index 0 = bt1)."""
+    return [bt1, bt2, bt3, bt4, bt5, bt6, bt7, bt8, bt9]
+
+
+def _board():
+    """Snapshot of the current board state as a flat list."""
+    return [b1, b2, b3, b4, b5, b6, b7, b8, b9]
+
+
+def _apply_move(index_0based, player):
+    """
+    Write a move into the module globals and update the button image.
+
+    Parameters
+    ----------
+    index_0based : int
+        0-based cell index (0–8).
+    player : int
+        HUMAN (0) or COMPUTER (1).
+    """
     global b1, b2, b3, b4, b5, b6, b7, b8, b9
-    global list_buttons
-    global bt1, bt2, bt3, bt4, bt5, bt6, bt7, bt8, bt9
+    buttons = _cell_buttons()
+    img = circleimgtk if player == HUMAN else crossimgtk
 
-    if index == 1:
-        bt1.config(image=circleimgtk)
-        bt1.config(state=DISABLED)
-        b1 = 0
-        list_buttons.append(1)
+    buttons[index_0based].config(image=img, state=DISABLED)
 
-    elif index == 2:
-        bt2.config(image=circleimgtk)
-        bt2.config(state=DISABLED)
-        b2 = 0
-        list_buttons.append(2)
+    # Update the matching global variable
+    cell_map = [None] * 9
 
-    elif index == 3:
-        bt3.config(image=circleimgtk)
-        bt3.config(state=DISABLED)
-        b3 = 0
-        list_buttons.append(3)
+    def _set(pos, val):
+        global b1, b2, b3, b4, b5, b6, b7, b8, b9
+        if pos == 0: b1 = val
+        elif pos == 1: b2 = val
+        elif pos == 2: b3 = val
+        elif pos == 3: b4 = val
+        elif pos == 4: b5 = val
+        elif pos == 5: b6 = val
+        elif pos == 6: b7 = val
+        elif pos == 7: b8 = val
+        elif pos == 8: b9 = val
 
-    elif index == 4:
-        bt4.config(image=circleimgtk)
-        bt4.config(state=DISABLED)
-        b4 = 0
-        list_buttons.append(4)
+    _set(index_0based, player)
 
-    elif index == 5:
-        bt5.config(image=circleimgtk)
-        bt5.config(state=DISABLED)
-        b5 = 0
-        list_buttons.append(5)
-
-    elif index == 6:
-        bt6.config(image=circleimgtk)
-        bt6.config(state=DISABLED)
-        b6 = 0
-        list_buttons.append(6)
-
-    elif index == 7:
-        bt7.config(image=circleimgtk)
-        bt7.config(state=DISABLED)
-        b7 = 0
-        list_buttons.append(7)
-
-    elif index == 8:
-        bt8.config(image=circleimgtk)
-        bt8.config(state=DISABLED)
-        b8 = 0
-        list_buttons.append(8)
-
-    elif index == 9:
-        bt9.config(image=circleimgtk)
-        bt9.config(state=DISABLED)
-        b9 = 0
-        list_buttons.append(9)
-
-    check_winner()
-    random_choice(list_buttons)
-    check_winner()
-    
 
 def check_winner():
-    global b1, b2, b3, b4, b5, b6, b7, b8, b9
-    global lb5
-    if (b1 == b2 == b3 == 0) or (b4 == b5 == b6 == 0) or (b7 == b8 == b9 == 0) or (b1 == b4 == b7 == 0) or (b2 == b5 == b8 == 0) or (b3 == b6 == b9 == 0) or (b1 == b5 == b9 == 0) or (b3 == b5 == b7 == 0):
-        lb5.config(text="Circle Wins!",fg = "Red")
-        lb5.config(bg="lightGreen")
-        print("Player1 wins")
-        disable_all()
+    """
+    Inspect the current board.  Display result and lock the board
+    if the game has reached a terminal state.
 
-    elif (b1 == b2 == b3 == 1) or (b4 == b5 == b6 == 1) or (b7 == b8 == b9 == 1) or (b1 == b4 == b7 == 1) or (b2 == b5 == b8 == 1) or (b3 == b6 == b9 == 1) or (b1 == b5 == b9 == 1) or (b3 == b5 == b7 == 1):
-        lb5.config(text="Cross Wins!")
-        lb5.config(bg="lightGreen",fg = "Red")
-        print("Player2 wins")
-        disable_all()
+    Returns True if the game ended, False otherwise.
+    """
+    global lb5, game_over
 
-    elif all(bt["state"] == DISABLED for bt in [bt1, bt2, bt3, bt4, bt5, bt6, bt7, bt8, bt9]):
+    board = _board()
+    winner = check_winner_board(board)
+
+    if winner == HUMAN:
+        lb5.config(text=f"{p1_name} Wins!", fg="Red", bg="lightGreen")
+        print(f"{p1_name} wins")
+        disable_all()
+        game_over = True
+        return True
+
+    if winner == COMPUTER:
+        lb5.config(text="Computer Wins!", fg="Red", bg="lightGreen")
+        print("Computer wins")
+        disable_all()
+        game_over = True
+        return True
+
+    if is_draw(board):
+        lb5.config(text="It's a tie!", fg="Red", bg="Cyan")
         print("It's a tie!")
-        lb5.config(text="It's a tie!",bg= "Cyan",fg="Red")
-       
+        disable_all()
+        game_over = True
+        return True
+
+    return False
 
 
+def player_move(index):
+    """
+    Handle a human click on cell ``index`` (1-based, matching button names).
 
-def random_choice(list_buttons):
-    global b1, b2, b3, b4, b5, b6, b7, b8, b9  
-    global bt1, bt2, bt3, bt4, bt5, bt6, bt7, bt8, bt9
-    if len(list_buttons) == 9:
-        return  # board is full
+    Flow:
+      1. Ignore if game is already over.
+      2. Apply the human move.
+      3. Check for terminal state.
+      4. If still playing, let the computer respond via Minimax.
+      5. Check for terminal state again.
+    """
+    global game_over
 
-    comp_choice = random.randint(1, 9)
+    # Guard: ignore clicks after the game has ended
+    if game_over:
+        return
 
-    while comp_choice in list_buttons:
-        comp_choice = random.randint(1, 9)
+    idx0 = index - 1   # convert to 0-based
 
+    # Guard: cell should not be occupied (button is disabled, but belt-and-braces)
+    board = _board()
+    if board[idx0] != EMPTY:
+        return
 
-    if comp_choice == 1:
-        bt1.config(image=crossimgtk)
-        bt1.config(state=DISABLED)
-        b1 = 1
-        list_buttons.append(1)
-        
-    elif comp_choice == 2:
-        bt2.config(image=crossimgtk)
-        bt2.config(state=DISABLED)
-        b2 = 1
-        list_buttons.append(2)
-        
-    elif comp_choice == 3:
-        bt3.config(image=crossimgtk)
-        bt3.config(state=DISABLED)
-        b3 = 1
-        list_buttons.append(3)
-        
-    elif comp_choice == 4:
-        bt4.config(image=crossimgtk)
-        bt4.config(state=DISABLED)
-        b4 = 1
-        list_buttons.append(4)
-        
-    elif comp_choice == 5:
-        bt5.config(image=crossimgtk)
-        bt5.config(state=DISABLED)
-        b5 = 1
-        list_buttons.append(5)
-        
-    elif comp_choice == 6:
-        bt6.config(image=crossimgtk)
-        bt6.config(state=DISABLED)
-        b6 = 1
-        list_buttons.append(6)
-        
-    elif comp_choice == 7:
-        bt7.config(image=crossimgtk)
-        bt7.config(state=DISABLED)
-        b7 = 1
-        list_buttons.append(7)
-        
-    elif comp_choice == 8:
-        bt8.config(image=crossimgtk)
-        bt8.config(state=DISABLED)
-        b8 = 1
-        list_buttons.append(8)
-        
+    # ── Human move ──────────────────────────────────────────────
+    _apply_move(idx0, HUMAN)
 
-    elif comp_choice == 9:
-        bt9.config(image=crossimgtk)
-        bt9.config(state=DISABLED)
-        b9 = 1
-        list_buttons.append(9)
-        
+    if check_winner():
+        return  # human just won or board is full
+
+    # ── Computer move (Minimax) ──────────────────────────────────
+    board = _board()   # refresh after human move
+    comp_idx = best_move(board)
+
+    if comp_idx == -1:
+        # Board is full (shouldn't happen if check_winner caught draw, but safe)
+        return
+
+    _apply_move(comp_idx, COMPUTER)
+    check_winner()
+
 
 def start_tic_tac_toe(parent, p1, p2):
+    """
+    Launch the Single-Player game window.
+
+    Parameters
+    ----------
+    parent : Tk
+        The root window (from entry.py), hidden while this window is open.
+    p1 : str
+        Human player's name.
+    p2 : str
+        Always "Computer" when called from entry.py.
+    """
     global choice, b1, b2, b3, b4, b5, b6, b7, b8, b9
-    global bt1, bt2, bt3, bt4, bt5, bt6, bt7, bt8, bt9,list_buttons
+    global bt1, bt2, bt3, bt4, bt5, bt6, bt7, bt8, bt9
     global circleimgtk, crossimgtk, lb5
-    global p1_name, p2_name
+    global p1_name, p2_name, game_over
+
     p1_name = p1
     p2_name = p2
 
+    # Initialise state
+    b1 = b2 = b3 = b4 = b5 = b6 = b7 = b8 = b9 = EMPTY
+    game_over = False
+
+    # ── Create game window ───────────────────────────────────────
     game = Toplevel(parent)
     game.title("Tic Tac Toe Game")
     game.config(bg="light blue")
+    game.geometry("1400x800")
 
     Label(
         game,
-        text=f"Player 1: {p1} (O)  vs  Player 2: {p2} (X)",
-        font=("Arial",14),
+        text=f"Player 1: {p1} (O)  vs  Computer (X)",
+        font=("Arial", 14),
         bg="cornsilk",
         fg="grey"
-    ).place(x=540,y=120,width=500,height=50)
+    ).place(x=540, y=120, width=500, height=50)
 
-    game.geometry("1400x800")
-    b1 = b2 = b3 = b4 = b5 = b6 = b7 = b8 = b9 = -1
-    list_buttons = []
-    
-    #this is for images
-    circleimg = Image.open("circle.png")
-    crossimg = Image.open("cross.png")
+    # ── Load images ──────────────────────────────────────────────
+    circleimgtk = ImageTk.PhotoImage(Image.open("circle.png"))
+    crossimgtk  = ImageTk.PhotoImage(Image.open("cross.png"))
 
-    circleimgtk = ImageTk.PhotoImage(circleimg)
-    crossimgtk = ImageTk.PhotoImage(crossimg)
+    # ── Board buttons ────────────────────────────────────────────
+    bt1 = Button(game, text="", font=("Arial", 30), width=6, height=3,
+                 bg="Grey", command=lambda: player_move(1))
+    bt1.place(x=590, y=200, width=130, height=110)
 
+    bt2 = Button(game, text="", font=("Arial", 30), width=6, height=3,
+                 bg="Grey", command=lambda: player_move(2))
+    bt2.place(x=720, y=200, width=130, height=110)
 
-    #buttons for tic tak tok
-    bt1=Button(game,text="",font=("Arial",30),width=6,height=3,bg="Grey",command=lambda:player_move(1))
-    bt1.place(x=590,y=200,width=130,height=110)
+    bt3 = Button(game, text="", font=("Arial", 30), width=6, height=3,
+                 bg="Grey", command=lambda: player_move(3))
+    bt3.place(x=855, y=200, width=130, height=110)
 
-    bt2=Button(game,text="",font=("Arial",30),width=6,height=3,bg="Grey",command=lambda:player_move(2))
-    bt2.place(x=720,y=200,width=130,height=110)
+    bt4 = Button(game, text="", font=("Arial", 30), width=6, height=3,
+                 bg="Grey", command=lambda: player_move(4))
+    bt4.place(x=590, y=320, width=130, height=110)
 
-    bt3=Button(game,text="",font=("Arial",30),width=6,height=3,bg="Grey",command=lambda:player_move(3))
-    bt3.place(x=855,y=200,width=130,height=110)
+    bt5 = Button(game, text="", font=("Arial", 30), width=6, height=3,
+                 bg="Grey", command=lambda: player_move(5))
+    bt5.place(x=720, y=320, width=130, height=110)
 
-    bt4=Button(game,text="",font=("Arial",30),width=6,height=3,bg="Grey",command=lambda:player_move(4))
-    bt4.place(x=590,y=320,width=130,height=110)   
+    bt6 = Button(game, text="", font=("Arial", 30), width=6, height=3,
+                 bg="Grey", command=lambda: player_move(6))
+    bt6.place(x=855, y=320, width=130, height=110)
 
-    bt5=Button(game,text="",font=("Arial",30),width=6,height=3,bg="Grey",command=lambda:player_move(5))
-    bt5.place(x=720,y=320,width=130,height=110)
+    bt7 = Button(game, text="", font=("Arial", 30), width=6, height=3,
+                 bg="Grey", command=lambda: player_move(7))
+    bt7.place(x=590, y=440, width=130, height=110)
 
-    bt6=Button(game,text="",font=("Arial",30),width=6,height=3,bg="Grey",command=lambda:player_move(6))
-    bt6.place(x=855,y=320,width=130,height=110)
+    bt8 = Button(game, text="", font=("Arial", 30), width=6, height=3,
+                 bg="Grey", command=lambda: player_move(8))
+    bt8.place(x=720, y=440, width=130, height=110)
 
-    bt7=Button(game,text="",font=("Arial",30),width=6,height=3,bg="Grey", command=lambda:player_move(7))
-    bt7.place(x=590,y=440,width=130,height=110)
+    bt9 = Button(game, text="", font=("Arial", 30), width=6, height=3,
+                 bg="Grey", command=lambda: player_move(9))
+    bt9.place(x=855, y=440, width=130, height=110)
 
-    bt8=Button(game,text="",font=("Arial",30),width=6,height=3,bg="Grey", command=lambda:player_move(8))
-    bt8.place(x=720,y=440,width=130,height=110)
+    # ── Decorative labels ────────────────────────────────────────
+    Label(game, text="Tic Tac Tok Game",
+          font=("Bernard MT Condensed", 30), bg="Cyan", fg="Red"
+          ).place(x=580, y=50, width=400, height=50)
 
-    bt9=Button(game,text="",font=("Arial",30),width=6,height=3,bg="Grey", command=lambda:player_move(9))
-    bt9.place(x=855,y=440,width=130,height=110)
+    Label(game, font=("Arial", 12), bg="black").place(x=590, y=310,  width=395, height=10)
+    Label(game, font=("Arial", 12), bg="black").place(x=590, y=430,  width=395, height=10)
+    Label(game, font=("Arial", 12), bg="black").place(x=710, y=200,  width=10,  height=350)
+    Label(game, font=("Arial", 12), bg="black").place(x=850, y=200,  width=10,  height=350)
 
-    #labels for tic tak tok
+    lb5 = Label(game, font=("Arial", 12), bg="light blue")
+    lb5.place(x=615, y=650, width=350, height=50)
 
-    lb1=Label(game,text="Tic Tac Tok Game",font=("Bernard MT Condensed",30),bg="Cyan",fg="Red")
-    lb1.place(x=580,y=50,width=400,height=50)
+    # ── Control buttons ──────────────────────────────────────────
+    Button(game, text="Exit Game", font=("Arial", 14),
+           command=game.destroy).place(x=1300, y=20, width=80, height=30)
 
-    lb2= Label(game,font=("Arial",12),bg="black")
-    lb2.place(x=590,y=310,width=395,height=10)
+    Button(game, text="New Game", font=("Arial", 14),
+           command=retry).place(x=1150, y=20, width=100, height=30)
 
-    lb3 = Label(game,font=("Arial",12),bg="black")
-    lb3.place(x=590,y=430,width=395,height=10)
-
-    lb4 = Label(game,font=("Arial",12),bg="black")
-    lb4.place(x=710,y=200,width=10,height=350)
-
-    lb6 = Label(game,font=("Arial",12),bg="black")
-    lb6.place(x=850,y=200,width=10,height=350)
-
-    lb5 = Label(game,font=("Arial",12),bg="light blue")
-    lb5.place(x=615,y=650,width=350,height=50)
-
-    rb = Button(game, text="Exit Game", font=("Arial", 14), command=game.destroy)
-    rb.place(x=1300,y=20,width=80,height=30)
-
-    ng = Button(game, text="New Game", font=("Arial", 14), command=retry)
-    ng.place(x=1150,y=20,width=100,height=30)
-    
     game.mainloop()

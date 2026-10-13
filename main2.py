@@ -167,23 +167,32 @@ def button9():
     check_winner()
     return choice
 
+def disable_all():
+    """Disable all board buttons after a terminal state."""
+    for bt in [bt1, bt2, bt3, bt4, bt5, bt6, bt7, bt8, bt9]:
+        bt.config(state=DISABLED)
+
+
 def check_winner():
     if (b1 == b2 == b3 == 0) or (b4 == b5 == b6 == 0) or (b7 == b8 == b9 == 0) or (b1 == b4 == b7 == 0) or (b2 == b5 == b8 == 0) or (b3 == b6 == b9 == 0) or (b1 == b5 == b9 == 0) or (b3 == b5 == b7 == 0):
         lb5.config(text=f"{p1_name} Wins!",fg = "Red")
         lb5.config(bg="lightGreen")
         print("Player1 wins")
-        #disable_all()
+        disable_all()
+
 
     elif (b1 == b2 == b3 == 1) or (b4 == b5 == b6 == 1) or (b7 == b8 == b9 == 1) or (b1 == b4 == b7 == 1) or (b2 == b5 == b8 == 1) or (b3 == b6 == b9 == 1) or (b1 == b5 == b9 == 1) or (b3 == b5 == b7 == 1):
         lb5.config(text=f"{p2_name} Wins!")
         lb5.config(bg="lightGreen",fg = "Red")
         print("Player 2 wins")
-        #disable_all()
+        disable_all()
 
-    elif all(bt["state"] == DISABLED for bt in [bt1, bt2, bt3, bt4, bt5, bt6, bt7, bt8, bt9]):
+
+    elif all(v != -1 for v in [b1, b2, b3, b4, b5, b6, b7, b8, b9]):
         print("It's a tie!")
         lb5.config(text="Game a tie!",bg= "Cyan",fg="Red")
-       # disable_all()
+        disable_all()
+
 
 #this for main window
 
